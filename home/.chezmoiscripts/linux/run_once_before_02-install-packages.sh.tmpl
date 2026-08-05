@@ -1,0 +1,12 @@
+{{- if eq .chezmoi.os "linux" -}}
+#!/bin/bash
+# .chezmoidata/packages.yaml の brew リストを一括導入する。
+# chezmoi はスクリプトを非対話シェルで実行し ~/.bashrc を読み込まないため、
+# ここで改めて brew に PATH を通す必要がある。
+
+echo "[dotfiles] brew でパッケージを導入します"
+eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+# ask mode（確認プロンプト）を無効化してハングを防ぐ
+export HOMEBREW_NO_ASK=1
+brew install {{ range .packages.brew }}{{ . }} {{ end }}
+{{- end }}

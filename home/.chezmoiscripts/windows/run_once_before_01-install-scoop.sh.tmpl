@@ -1,0 +1,14 @@
+{{- if eq .chezmoi.os "windows" -}}
+#!/bin/bash
+# scoop の導入を確認する（Windows）。
+# scoop はユーザー操作での導入が必要なため自動導入はせず、
+# 未導入なら手順を案内して中断する。
+
+echo "[dotfiles] scoop を確認します"
+if ! command -v scoop &>/dev/null; then
+  echo "scoop がインストールされていません。"
+  echo "PowerShell で以下を実行してください:"
+  echo "  irm get.scoop.sh | iex"
+  exit 1
+fi
+{{- end }}

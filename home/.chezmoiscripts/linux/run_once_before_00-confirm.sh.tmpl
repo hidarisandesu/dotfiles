@@ -1,0 +1,36 @@
+{{- if eq .chezmoi.os "linux" -}}
+#!/bin/bash
+# セットアップの関門（Linux / 最初に実行）。
+# apply 全体で何をするかを宣言し、対話端末のときだけ続行可否を尋ねる。
+# No のときは exit 1 で apply 全体を中断する（後続スクリプトも実行されない）。
+# 非対話（CI 等）や DOTFILES_YES=1 のときは確認せず自動で続行する。
+
+cat <<'PLAN'
+
+================ dotfiles セットアップ計画（Linux）================
+このあと chezmoi apply は次を実行します:
+
+  1. apt でパッケージ導入                    (sudo が必要)
+       build-essential procps curl file git
+  2. Homebrew を導入（未導入時のみ）         (~/.bashrc に brew 設定を追記)
+  3. brew install で追加パッケージ           jq
+  4. dotfiles を配置
+       ~/.gitconfig
+       ~/.claude/settings.json
+       ~/.claude/statusline.sh
+
+途中で sudo のパスワード入力を求められることがあります。
+==================================================================
+
+PLAN
+
+# 対話端末で、かつ DOTFILES_YES が未設定のときだけ尋ねる。
+if [ -t 0 ] && [ -z "${DOTFILES_YES:-}" ]; then
+  read -r -p "続行しますか? [y/N] " ans
+  # y / yes 以外はすべて中断扱い
+  case "$ans" in
+    [yY]|[yY][eE][sS]) ;;
+    *) echo "セットアップを中止しました。"; exit 1 ;;
+  esac
+fi
+{{- end }}

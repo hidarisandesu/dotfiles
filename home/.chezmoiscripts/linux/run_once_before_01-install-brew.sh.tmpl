@@ -1,0 +1,22 @@
+{{- if eq .chezmoi.os "linux" -}}
+#!/bin/bash
+# Homebrew 本体を導入する（未導入時のみ = 冪等）。
+# 公式インストーラを非対話モードで実行し、以降のシェルで brew を使えるよう
+# ~/.bashrc に shellenv を追記する（インストーラは自動追記しないため必要）。
+
+echo "[dotfiles] Homebrew を確認します"
+if ! command -v brew &>/dev/null; then
+  echo "[dotfiles] Homebrew を導入します..."
+  # 公式インストーラを非対話（NONINTERACTIVE=1）で実行する
+  NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+  # 次回以降のシェルで brew を使えるよう ~/.bashrc に追記（未追記のときのみ）
+  BREW_SHELLENV='eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"'
+  if ! grep -qF "linuxbrew" ~/.bashrc 2>/dev/null; then
+    echo "$BREW_SHELLENV" >> ~/.bashrc
+    echo "[dotfiles] ~/.bashrc に brew の設定を追記しました。"
+  fi
+else
+  echo "[dotfiles] Homebrew は導入済みのためスキップします。"
+fi
+{{- end }}

@@ -1,0 +1,7 @@
+{{- if eq .chezmoi.os "windows" -}}
+#!/bin/bash
+# .chezmoidata/packages.yaml の scoop リストを一括導入する。
+
+echo "[dotfiles] scoop でパッケージを導入します"
+scoop install {{ range .packages.scoop }}{{ . }} {{ end }}
+{{- end }}

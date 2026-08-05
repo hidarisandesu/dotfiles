@@ -1,0 +1,11 @@
+{{- if eq .chezmoi.os "linux" -}}
+#!/bin/bash
+# Homebrew を動かすための土台パッケージを apt で導入する（Debian/Ubuntu 前提）。
+# 導入するものは Homebrew on Linux の公式必須依存に一致する。
+# 既に導入済みなら apt 側でスキップされるため冪等。
+
+echo "[dotfiles] apt でパッケージを導入します"
+sudo apt-get update
+# -y: 対話（y/n）を省略して確認せず導入する
+sudo apt-get install -y build-essential procps curl file git
+{{- end }}
