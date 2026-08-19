@@ -12,9 +12,7 @@
   },
   "enabledPlugins": {
     "skill-creator@claude-plugins-official": true,
-    "skills-core@cc-plugins": true,
-    "hook-reply-first@cc-plugins": true,
-    "style-structured@cc-plugins": true
+    "skills-core@cc-plugins": true
   },
   "extraKnownMarketplaces": {
     "claude-plugins-official": {
