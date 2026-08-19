@@ -1,6 +1,6 @@
 #!/bin/bash
 # Claude Code ステータス行（3行表示）
-#   1行目: vバージョン | モデル | 📂 ディレクトリ | 🌿 gitブランチ | 💬 ターン数
+#   1行目: vバージョン | モデル (エフォート) | 📂 ディレクトリ | 🌿 gitブランチ | 💬 ターン数
 #   2行目: Context: プログレスバー [使用率%] 使用トークン / 上限トークン（K/M単位）
 #   3行目: Rate: レート制限使用率（5時間 / 7日間）
 input=$(cat)
@@ -19,12 +19,13 @@ mapfile -t F < <(
     (.context_window.context_window_size // 0),
     (.rate_limits.five_hour.used_percentage // ""),
     (.rate_limits.seven_day.used_percentage // ""),
-    (.version // "")
+    (.version // ""),
+    (.effort.level // "")
   ' | tr -d '\r'
 )
 MODEL="${F[0]}"; MODEL_ID="${F[1]}"; DIR_FULL="${F[2]}"; TRANSCRIPT="${F[3]}"
 PCT="${F[4]:-0}"; USED="${F[5]:-0}"; MAX="${F[6]:-0}"
-FIVE_H="${F[7]}"; WEEK="${F[8]}"; VER="${F[9]}"
+FIVE_H="${F[7]}"; WEEK="${F[8]}"; VER="${F[9]}"; EFFORT="${F[10]}"
 
 # --- モデル名: display_name を優先。バージョン数字が無ければ id から整形（claude-opus-4-8[1m] -> opus 4.8） ---
 if [ -z "$MODEL" ] || ! printf '%s' "$MODEL" | grep -q '[0-9]'; then
@@ -72,10 +73,12 @@ humanize() {
 # --- レート制限値を整形（空なら "--"、値があれば "21.5%"） ---
 fmt_rate() { if [ -n "$1" ]; then printf '%.1f%%' "$1"; else printf '%s' '--'; fi; }
 
-# --- 1行目を組み立て（先頭に Claude Code バージョン。各要素は " | " 区切り。git リポジトリ外ならブランチ表示を省略） ---
+# --- 1行目を組み立て（先頭に Claude Code バージョン。各要素は " | " 区切り。git リポジトリ外ならブランチ、非対応モデルならエフォートを省略） ---
 LINE1=""
 [ -n "$VER" ] && LINE1="${GRAY}v${VER}${RESET} | "
-LINE1="${LINE1}${CYAN}${MODEL}${RESET} | 📂 ${DIR}"
+LINE1="${LINE1}${CYAN}${MODEL}${RESET}"
+[ -n "$EFFORT" ] && LINE1="${LINE1} ${GRAY}(${EFFORT})${RESET}"
+LINE1="${LINE1} | 📂 ${DIR}"
 [ -n "$BRANCH" ] && LINE1="${LINE1} | 🌿 ${BRANCH}"
 LINE1="${LINE1} | 💬 ${TURNS}"
 
