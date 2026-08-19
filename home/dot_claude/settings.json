@@ -30,10 +30,8 @@
   },
   "language": "japanese",
   "spinnerTipsEnabled": false,
-  "effortLevel": "xhigh",
   "autoUpdatesChannel": "latest",
   "plansDirectory": "./.plans",
   "agentPushNotifEnabled": true,
-  "inputNeededNotifEnabled": true,
-  "model": "claude-fable-5[1m]"
+  "inputNeededNotifEnabled": true
 }
