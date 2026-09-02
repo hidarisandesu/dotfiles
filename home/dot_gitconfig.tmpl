@@ -1,0 +1,16 @@
+[core]
+	editor = code --wait
+	autocrlf = false
+	ignorecase = false
+[user]
+	name = hidarisandesu
+	# GitHub の noreply アドレス(実アドレスをコミットに載せないための公式機能)
+	email = 167959780+hidarisandesu@users.noreply.github.com
+[init]
+	defaultBranch = main
+[color]
+	ui = true
+{{- if eq .chezmoi.os "linux" }}
+[credential "https://github.com"]
+	helper = !/usr/bin/gh auth git-credential
+{{- end }}

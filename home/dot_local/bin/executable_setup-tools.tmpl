@@ -1,0 +1,236 @@
+{{- $os := .chezmoi.os -}}
+#!/usr/bin/env bash
+# chezmoi 管理(生成元: home/dot_local/bin/executable_setup-tools.tmpl、{{ $os }} 用にベイク済み)
+# 台帳 home/.chezmoidata/tools.yaml の道具を番号選択で導入する。chezmoi apply は導入を行わない。
+set -u
+
+# ---- 台帳(テンプレートでベイク。実行時に YAML は読まない) ----
+TOOL_IDS=({{ range .tools }}{{ .id }} {{ end }})
+declare -A NAME NOTE CHECK KIND RUN REQUIRES
+{{- range .tools }}
+{{- $chk := .check }}{{ if not (kindIs "string" $chk) }}{{ $chk = index $chk $os }}{{ end }}
+{{- $ins := index .install $os }}
+NAME[{{ .id }}]={{ .name | squote }}
+NOTE[{{ .id }}]={{ if hasKey . "note" }}{{ .note | squote }}{{ else }}''{{ end }}
+CHECK[{{ .id }}]={{ $chk | squote }}
+KIND[{{ .id }}]={{ $ins.kind | squote }}
+RUN[{{ .id }}]={{ $ins.run | squote }}
+REQUIRES[{{ .id }}]={{ if hasKey . "requires" }}{{ .requires | join " " | squote }}{{ else }}''{{ end }}
+{{- end }}
+
+declare -A MENU      # 表示番号 -> id
+declare -A SELECTED  # 導入対象に選ばれた id
+declare -A RESULT    # id -> ok | reshell | manual | skip | fail
+PLAN=()
+
+is_installed() { eval "${CHECK[$1]}" >/dev/null 2>&1; }
+
+print_status() {
+  local id n=1 r deps i
+  local -a sub
+  MENU=()
+  echo "導入状況(* = 導入済み):"
+  for id in "${TOOL_IDS[@]}"; do
+    if is_installed "$id"; then
+      printf '   *  %s\n' "${NAME[$id]}"
+    else
+      printf '  %2d) %s\n' "$n" "${NAME[$id]}"
+      MENU[$n]=$id
+      n=$((n + 1))
+    fi
+    deps=""
+    for r in ${REQUIRES[$id]}; do
+      deps="${deps:+$deps, }${NAME[$r]}"
+    done
+    sub=()
+    [ -n "$deps" ] && sub+=("依存: $deps")
+    [ -n "${NOTE[$id]}" ] && sub+=("用途: ${NOTE[$id]}")
+    for i in "${!sub[@]}"; do
+      if [ "$i" -eq $((${#sub[@]} - 1)) ]; then
+        printf '      └─ %s\n' "${sub[$i]}"
+      else
+        printf '      ├─ %s\n' "${sub[$i]}"
+      fi
+    done
+  done
+}
+
+# 選択 id と、その未導入の依存を再帰的に SELECTED へ入れる
+select_with_requires() {
+  local id=$1 r
+  [ -n "${SELECTED[$id]:-}" ] && return 0
+  is_installed "$id" && return 0
+  SELECTED[$id]=1
+  for r in ${REQUIRES[$id]}; do
+    select_with_requires "$r"
+  done
+}
+
+install_one() {
+  local id=$1 r
+  # 依存の状態確認
+  for r in ${REQUIRES[$id]}; do
+    if [ "${RESULT[$r]:-}" = reshell ]; then
+      echo "  → スキップ: ${NAME[$r]} をこの実行で導入したため。シェルを開き直して setup-tools を再実行してください"
+      RESULT[$id]=skip
+      return 0
+    fi
+    if ! is_installed "$r"; then
+      echo "  → スキップ: 先に ${NAME[$r]} を導入してから再実行してください"
+      RESULT[$id]=skip
+      return 0
+    fi
+  done
+  # gh を使う項目は認証必須(公開リポジトリの release download でも認証が要る)
+  case " ${REQUIRES[$id]} " in
+    *" gh "*)
+      if ! gh auth status >/dev/null 2>&1; then
+        echo "  → スキップ: gh auth login で認証してから再実行してください"
+        RESULT[$id]=skip
+        return 0
+      fi
+      ;;
+  esac
+  case "${KIND[$id]}" in
+    manual)
+      echo "  → 手動導入: ${RUN[$id]}"
+      RESULT[$id]=manual
+      ;;
+    cmd | func)
+      if eval "${RUN[$id]}"; then
+        if is_installed "$id"; then
+          RESULT[$id]=ok
+        else
+          # winget はレジストリの PATH を書くだけで、実行中のシェルには反映されない
+          echo "  → 導入コマンドは成功。新しいシェルで有効になります"
+          RESULT[$id]=reshell
+        fi
+      else
+        RESULT[$id]=fail
+      fi
+      ;;
+  esac
+}
+
+# ---- OS 別の導入関数({{ $os }} 用) ----
+{{ if eq $os "windows" -}}
+install_udev_gothic() {
+  local tmp zip fontdir f base rc=0
+  tmp=$(mktemp -d) || return 1
+  gh release download -R yuru7/UDEV-gothic -p 'UDEVGothic_NF_*.zip' -D "$tmp" || return 1
+  zip=$(ls "$tmp"/UDEVGothic_NF_*.zip) || return 1
+  powershell.exe -NoProfile -Command "Expand-Archive -LiteralPath '$(cygpath -w "$zip")' -DestinationPath '$(cygpath -w "$tmp")'" || return 1
+  fontdir="$(cygpath "$LOCALAPPDATA")/Microsoft/Windows/Fonts"
+  mkdir -p "$fontdir"
+  for f in "$tmp"/UDEVGothic_NF_*/*.ttf; do
+    base=$(basename "$f" .ttf)
+    cp "$f" "$fontdir/" || { rc=1; continue; }
+    MSYS_NO_PATHCONV=1 reg.exe add "HKCU\Software\Microsoft\Windows NT\CurrentVersion\Fonts" \
+      /v "$base (TrueType)" /t REG_SZ /d "$(cygpath -w "$fontdir/$base.ttf")" /f >/dev/null || rc=1
+  done
+  rm -rf "$tmp"
+  return $rc
+}
+{{ else -}}
+install_gh_linux() {
+  local out
+  { type -p wget >/dev/null || { sudo apt-get update && sudo apt-get install -y wget; }; } \
+    && sudo mkdir -p -m 755 /etc/apt/keyrings \
+    && out=$(mktemp) \
+    && wget -nv -O"$out" https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+    && sudo cp "$out" /etc/apt/keyrings/githubcli-archive-keyring.gpg \
+    && sudo chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg \
+    && sudo mkdir -p -m 755 /etc/apt/sources.list.d \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list >/dev/null \
+    && sudo apt-get update \
+    && sudo apt-get install -y gh
+}
+
+install_node_linux() {
+  # PROFILE=/dev/null で nvm インストーラの .bashrc 自動追記を抑止(読み込み行は管理下の .bashrc が持つ)
+  PROFILE=/dev/null bash -c "curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.7/install.sh | bash" || return 1
+  export NVM_DIR="$HOME/.nvm"
+  \. "$NVM_DIR/nvm.sh" || return 1
+  nvm install --lts
+}
+
+install_udev_gothic() {
+  local tmp
+  tmp=$(mktemp -d) || return 1
+  gh release download -R yuru7/UDEV-gothic -p 'UDEVGothic_NF_*.zip' -D "$tmp" || return 1
+  { command -v unzip >/dev/null || { sudo apt-get update && sudo apt-get install -y unzip; }; } || return 1
+  unzip -q "$tmp"/UDEVGothic_NF_*.zip -d "$tmp" || return 1
+  mkdir -p "$HOME/.local/share/fonts"
+  cp "$tmp"/UDEVGothic_NF_*/*.ttf "$HOME/.local/share/fonts/" || return 1
+  fc-cache -f >/dev/null
+  rm -rf "$tmp"
+}
+{{ end -}}
+
+install_vscode_ext() {
+  local ext=$1 tag tmp rc=0
+  tag=$(gh release list -R hidarisandesu/my-vscode-extensions --limit 50 --json tagName --jq '.[].tagName' | grep -m1 "^${ext}-v")
+  if [ -z "$tag" ]; then
+    echo "  ${ext}: リリースが見つかりません"
+    return 1
+  fi
+  tmp=$(mktemp -d)
+  gh release download -R hidarisandesu/my-vscode-extensions "$tag" -p '*.vsix' -D "$tmp" \
+    && code --install-extension "$tmp"/*.vsix || rc=1
+  rm -rf "$tmp"
+  return $rc
+}
+
+main() {
+  print_status
+  if [ ${#MENU[@]} -eq 0 ]; then
+    echo "すべて導入済みです。"
+    return 0
+  fi
+  # 非対話(パイプや hook 経由)では一覧表示のみ
+  [ -t 0 ] || return 0
+
+  local line n id
+  printf '導入する番号をスペース区切りで入力(Enter のみで終了): '
+  read -r line || return 0
+  [ -z "$line" ] && return 0
+  for n in $line; do
+    if [ -z "${MENU[$n]:-}" ]; then
+      echo "無効な番号: $n"
+      continue
+    fi
+    select_with_requires "${MENU[$n]}"
+  done
+  for id in "${TOOL_IDS[@]}"; do
+    [ -n "${SELECTED[$id]:-}" ] && PLAN+=("$id")
+  done
+  [ ${#PLAN[@]} -eq 0 ] && return 0
+
+  echo
+  echo "導入予定(依存を含む、台帳順):"
+  for id in "${PLAN[@]}"; do
+    echo "  - ${NAME[$id]}"
+  done
+  echo
+  for id in "${PLAN[@]}"; do
+    echo "--- ${NAME[$id]}"
+    install_one "$id"
+  done
+
+  echo
+  echo "結果:"
+  local fails=0 reshell=0
+  for id in "${PLAN[@]}"; do
+    case "${RESULT[$id]:-}" in
+      ok) echo "  導入: ${NAME[$id]}" ;;
+      reshell) echo "  導入(シェルを開き直すと有効): ${NAME[$id]}"; reshell=1 ;;
+      manual) echo "  手動導入が必要: ${NAME[$id]}" ;;
+      skip) echo "  スキップ(表示した案内に従って再実行): ${NAME[$id]}" ;;
+      fail) echo "  失敗: ${NAME[$id]}"; fails=1 ;;
+    esac
+  done
+  [ "$reshell" -eq 1 ] && echo "シェルを開き直してから setup-tools を再実行すると、残りを導入できます。"
+  return $fails
+}
+
+main "$@"

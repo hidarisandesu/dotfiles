@@ -1,0 +1,6 @@
+.claude/worktrees/
+*.stackdump
+.plans/
+.handoff/
+.tmp/
+.fukabori/

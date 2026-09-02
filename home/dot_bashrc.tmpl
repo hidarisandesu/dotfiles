@@ -1,0 +1,66 @@
+{{- $win := eq .chezmoi.os "windows" -}}
+# chezmoi 管理(生成元: home/dot_bashrc.tmpl)
+
+# 非対話シェル(scp やリモートコマンド実行)では何もしない
+case $- in
+  *i*) ;;
+  *) return ;;
+esac
+
+export LANG=ja_JP.UTF-8
+
+# setup-tools や oh-my-posh(Linux)の導入先を PATH に載せる(重複ガード付き)
+case ":$PATH:" in
+  *":$HOME/.local/bin:"*) ;;
+  *) export PATH="$HOME/.local/bin:$PATH" ;;
+esac
+
+# 非ログイン起動の端末(herdr等)でも /etc/profile.d/aliases.sh 相当のlsを使う
+alias ls='ls -F --color=auto --show-control-chars'
+alias ll='ls -l'
+{{- if $win }}
+
+# Git Bash 同梱の ssh ではなく Windows OpenSSH を使う(ssh-agent サービスと鍵を共有するため)
+alias ssh='/c/Windows/System32/OpenSSH/ssh.exe'
+alias ssh-add='/c/Windows/System32/OpenSSH/ssh-add.exe'
+alias ssh-keygen='/c/Windows/System32/OpenSSH/ssh-keygen.exe'
+{{- else }}
+
+# Ubuntu 既定 .bashrc 相当の履歴設定と補完
+HISTCONTROL=ignoreboth
+shopt -s histappend
+HISTSIZE=1000
+HISTFILESIZE=2000
+shopt -s checkwinsize
+if ! shopt -oq posix; then
+  if [ -f /usr/share/bash-completion/bash_completion ]; then
+    . /usr/share/bash-completion/bash_completion
+  elif [ -f /etc/bash_completion ]; then
+    . /etc/bash_completion
+  fi
+fi
+
+# Homebrew(導入済みの既存マシンのみ。新規マシンには brew を入れない)
+[ -x /home/linuxbrew/.linuxbrew/bin/brew ] && eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+
+# nvm(setup-tools の Node.js(LTS) が導入する)
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
+{{- end }}
+
+# 未導入なら黙ってスキップ(導入は setup-tools)
+command -v oh-my-posh >/dev/null && eval "$(oh-my-posh init bash --config "$HOME/.config/oh-my-posh/dracula.omp.json")"
+command -v herdr >/dev/null && eval "$(herdr completion bash)"
+
+# 端末に現在地を通知する(OSC 9;9)。herdrやWindows Terminalの新規タブ/workspaceが現ディレクトリを継承できるようになる
+# herdrはOSC 7も解釈するがホスト名付きURIを黙って捨てるため、パスをそのまま送るOSC 9;9を使う
+{{- if $win }}
+__report_cwd() { printf '\e]9;9;%s\a' "$(cygpath -w "$PWD")"; }
+{{- else }}
+__report_cwd() { printf '\e]9;9;%s\a' "$PWD"; }
+{{- end }}
+case " ${PROMPT_COMMAND[*]:-} " in
+  *" __report_cwd "*) ;;
+  *) PROMPT_COMMAND+=(__report_cwd) ;;
+esac

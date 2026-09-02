@@ -1,0 +1,33 @@
+# chezmoi:modify-template
+{{- /* chezmoi 管理(生成元: home/dot_claude/modify_settings.json)。
+     実機の settings.json を受け取り、配布キーだけを正本の値に置き換えて出力する(マージ配布)。
+     配布キーはトップレベルのキー単位で丸ごと正本の値になる(false や空文字も強制される)。
+     ここに無いキー(model・hooks・enabledPlugins・permissions 等)は実機の値をそのまま保持する。
+     新マシン(実機ファイルなし)では配布キーだけの JSON を生成する。 */ -}}
+{{- $current := dict -}}
+{{- if .chezmoi.stdin -}}
+{{-   $current = fromJson .chezmoi.stdin -}}
+{{- end -}}
+{{- $distributed := dict
+      "$schema" "https://json.schemastore.org/claude-code-settings.json"
+      "respectGitignore" false
+      "cleanupPeriodDays" 90
+      "attribution" (dict "commit" "" "pr" "" "sessionUrl" false)
+      "statusLine" (dict "type" "command" "command" "~/.claude/statusline.sh")
+      "extraKnownMarketplaces" (dict
+        "claude-plugins-official" (dict "source" (dict "source" "github" "repo" "anthropics/claude-plugins-official"))
+        "cc-plugins" (dict "source" (dict "source" "github" "repo" "hidarisandesu/cc-plugins")))
+      "language" "japanese"
+      "spinnerTipsEnabled" false
+      "effortLevel" "high"
+      "modelSettings" (dict "claude-opus-5" (dict "effortLevel" "xhigh"))
+      "autoUpdatesChannel" "latest"
+      "plansDirectory" "./.plans"
+      "fileCheckpointingEnabled" true
+      "inputNeededNotifEnabled" true
+      "agentPushNotifEnabled" true
+-}}
+{{- range $k, $v := $distributed -}}
+{{-   $_ := set $current $k $v -}}
+{{- end -}}
+{{ $current | toPrettyJson }}

@@ -1,0 +1,6 @@
+{{- if eq .chezmoi.os "windows" }}
+# 初回の Git for Windows 導入(.ps1 スクリプト)を、既定の実行ポリシーでも動かす
+[interpreters.ps1]
+    command = "powershell.exe"
+    args = ["-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass"]
+{{- end }}

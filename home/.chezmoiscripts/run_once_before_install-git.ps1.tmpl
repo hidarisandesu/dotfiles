@@ -1,0 +1,8 @@
+{{ if eq .chezmoi.os "windows" -}}
+# Git for Windows(git と Git Bash)が無ければ導入する。マシンごとに初回 apply で一度だけ実行される。
+# Linux ではテンプレート展開後に空になり、chezmoi は空のスクリプトを実行しない。
+# 判定は PATH と既定の導入先の両方を見る(PATH が未反映の環境で再導入・昇格を試みないため)
+if ((Get-Command git -ErrorAction SilentlyContinue) -or (Test-Path "$env:ProgramFiles\Git\cmd\git.exe")) { exit 0 }
+winget install --id Git.Git -e --source winget --accept-source-agreements --accept-package-agreements
+exit $LASTEXITCODE
+{{ end -}}

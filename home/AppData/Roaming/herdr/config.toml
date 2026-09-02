@@ -1,0 +1,14 @@
+# chezmoi 管理(生成元: home/AppData/Roaming/herdr/config.toml)
+# ここには既定値から変えた項目だけを置く。全項目と既定値は `herdr --default-config` で表示できる。
+
+onboarding = false
+
+[theme]
+name = "dracula"
+auto_switch = false
+
+[terminal]
+default_shell = 'C:\Program Files\Git\bin\bash.exe'
+
+[experimental]
+pane_history = false

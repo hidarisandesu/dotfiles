@@ -1,0 +1,8 @@
+# home/ 内で ~ に展開したくないファイルがあればここに記載(パスは展開先相対)
+{{ if ne .chezmoi.os "windows" }}
+# Linux では .profile が .bashrc を読むため、.bash_profile を置くと二重 source になる
+.bash_profile
+# Windows 固有の設定(herdr config・Windows Terminal fragment)
+AppData
+AppData/**
+{{ end }}

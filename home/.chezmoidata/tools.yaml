@@ -1,0 +1,137 @@
+# ツールの台帳。setup-tools(選択式導入コマンド)が参照する。
+# apply はこの台帳から何も導入しない。導入は setup-tools の番号選択で行う。
+#
+# スキーマ:
+#   id       台帳内の識別子(bash の連想配列キーになる)
+#   name     一覧に表示する名前(注記を含めない。注記は note へ)
+#   note     用途メモ(任意。一覧に「└ 用途:」として表示される)
+#   requires 依存する道具の id(導入時に未導入なら自動で同時導入。一覧に「└ 依存:」として表示される)
+#   check    シェルで評価して終了コード 0 なら導入済み。スカラーは両 OS 共通、マップは OS 別
+#   install.<os>.kind  cmd(コマンド実行) / func(setup-tools 内の関数) / manual(案内表示のみ)
+#   install.<os>.run   kind=cmd はコマンド、kind=func は関数名、kind=manual は案内文
+#
+# 規約: 値にシングルクォートを含めない(テンプレートが sprig の squote でシェルに埋め込むため)。
+tools:
+  - id: git
+    name: git
+    check: command -v git
+    install:
+      windows:
+        kind: cmd
+        run: winget install --id Git.Git -e --source winget --accept-source-agreements --accept-package-agreements
+      linux:
+        kind: cmd
+        run: sudo apt-get update && sudo apt-get install -y git
+  - id: gh
+    name: GitHub CLI(gh)
+    check: command -v gh
+    install:
+      windows:
+        kind: cmd
+        run: winget install --id GitHub.cli -e --source winget --accept-source-agreements --accept-package-agreements
+      linux:
+        kind: func
+        run: install_gh_linux
+  - id: node
+    name: Node.js(LTS)
+    check:
+      windows: command -v node
+      linux: command -v node || test -n "$(ls -A "$HOME/.nvm/versions/node" 2>/dev/null)"
+    install:
+      windows:
+        kind: cmd
+        run: winget install --id OpenJS.NodeJS.LTS -e --source winget --accept-source-agreements --accept-package-agreements
+      linux:
+        kind: func
+        run: install_node_linux
+  - id: vscode
+    name: Visual Studio Code
+    check: command -v code
+    install:
+      windows:
+        kind: manual
+        run: https://code.visualstudio.com/download からユーザーインストーラを入手して実行する
+      linux:
+        kind: manual
+        run: https://code.visualstudio.com/download から .deb を入手し sudo apt install ./ファイル名.deb で導入する
+  - id: claude
+    name: Claude Code
+    requires: [git]
+    check: command -v claude
+    install:
+      windows:
+        kind: cmd
+        run: powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "irm https://claude.ai/install.ps1 | iex"
+      linux:
+        kind: cmd
+        run: curl -fsSL https://claude.ai/install.sh | bash
+  - id: jq
+    name: jq
+    note: Claude Code の statusline.sh 用
+    check: command -v jq
+    install:
+      windows:
+        kind: cmd
+        run: winget install --id jqlang.jq -e --source winget --accept-source-agreements --accept-package-agreements
+      linux:
+        kind: cmd
+        run: sudo apt-get update && sudo apt-get install -y jq
+  - id: oh-my-posh
+    name: oh-my-posh
+    check: command -v oh-my-posh
+    install:
+      windows:
+        kind: cmd
+        run: winget install --id JanDeDobbeleer.OhMyPosh -e --source winget --accept-source-agreements --accept-package-agreements
+      linux:
+        kind: cmd
+        run: curl -s https://ohmyposh.dev/install.sh | bash -s -- -d "$HOME/.local/bin"
+  - id: herdr
+    name: herdr
+    note: AI エージェント対応のターミナルマルチプレクサ
+    check: command -v herdr
+    install:
+      windows:
+        kind: cmd
+        run: powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "irm https://herdr.dev/install.ps1 | iex"
+      linux:
+        kind: cmd
+        run: curl -fsSL https://herdr.dev/install.sh | sh
+  - id: udev-gothic-nf
+    name: UDEV Gothic NF
+    note: ターミナルと VS Code で使うフォント
+    requires: [gh]
+    check:
+      windows: test -f "$(cygpath "$LOCALAPPDATA")/Microsoft/Windows/Fonts/UDEVGothicNF-Regular.ttf"
+      linux: test -f "$HOME/.local/share/fonts/UDEVGothicNF-Regular.ttf"
+    install:
+      windows:
+        kind: func
+        run: install_udev_gothic
+      linux:
+        kind: func
+        run: install_udev_gothic
+  - id: open-with-default-app
+    name: open-with-default-app
+    note: ファイルを OS の既定アプリで開く自作 VS Code 拡張
+    requires: [gh, vscode]
+    check: code --list-extensions 2>/dev/null | grep -qi "^hidarisandesu.open-with-default-app$"
+    install:
+      windows:
+        kind: func
+        run: install_vscode_ext open-with-default-app
+      linux:
+        kind: func
+        run: install_vscode_ext open-with-default-app
+  - id: paste-screenshot
+    name: paste-screenshot
+    note: クリップボードのスクリーンショットを貼り付け保存する自作 VS Code 拡張
+    requires: [gh, vscode]
+    check: code --list-extensions 2>/dev/null | grep -qi "^hidarisandesu.paste-screenshot$"
+    install:
+      windows:
+        kind: func
+        run: install_vscode_ext paste-screenshot
+      linux:
+        kind: func
+        run: install_vscode_ext paste-screenshot
