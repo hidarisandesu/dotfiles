@@ -30,4 +30,4 @@
 {{- range $k, $v := $distributed -}}
 {{-   $_ := set $current $k $v -}}
 {{- end -}}
-{{ $current | toPrettyJson }}
+{{ $current | toPrettyJson -}}
