@@ -2,6 +2,7 @@
 {{- /* chezmoi 管理(生成元: home/dot_claude/modify_settings.json)。
      実機の settings.json を受け取り、配布キーだけを正本の値に置き換えて出力する(マージ配布)。
      配布キーはトップレベルのキー単位で丸ごと正本の値になる(false や空文字も強制される)。
+     /model や /effort の操作で Claude Code が書き換えるキー(model・effortLevel・modelSettings)は、配布すると apply のたびに戻されて乖離になるため配布しない。
      ここに無いキー(model・hooks・enabledPlugins・permissions 等)は実機の値をそのまま保持する。
      新マシン(実機ファイルなし)では配布キーだけの JSON を生成する。 */ -}}
 {{- $current := dict -}}
@@ -19,8 +20,6 @@
         "cc-plugins" (dict "source" (dict "source" "github" "repo" "hidarisandesu/cc-plugins")))
       "language" "japanese"
       "spinnerTipsEnabled" false
-      "effortLevel" "high"
-      "modelSettings" (dict "claude-opus-5" (dict "effortLevel" "xhigh"))
       "autoUpdatesChannel" "latest"
       "plansDirectory" "./.plans"
       "fileCheckpointingEnabled" true
